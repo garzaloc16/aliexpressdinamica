@@ -2,63 +2,49 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Simulador Mercado Libre CO</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 30px;
-      background: #f4f6f9;
+    body { font-family: Arial, sans-serif; margin: 30px; background: #f4f6f9; }
+    h1 { text-align: center; color: #333; font-size: 1.6rem; }
+    form, .table-container {
+      background: white; padding: 20px; border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1); margin-bottom: 20px;
     }
-    h1 {
-      text-align: center;
-      color: #333;
-    }
-    form, table {
-      background: white;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-      margin-bottom: 20px;
-    }
-    label {
-      display: block;
-      margin-top: 10px;
-      font-weight: bold;
-    }
+    label { display: block; margin-top: 10px; font-weight: bold; }
     input, select {
-      width: 100%;
-      padding: 8px;
-      margin-top: 4px;
-      border: 1px solid #ccc;
-      border-radius: 8px;
+      width: 100%; padding: 10px; margin-top: 4px;
+      border: 1px solid #ccc; border-radius: 8px;
+      font-size: 1rem;
     }
     button {
-      margin-top: 15px;
-      padding: 10px 15px;
-      border: none;
-      border-radius: 8px;
-      cursor: pointer;
-      background: #007bff;
-      color: white;
+      margin-top: 15px; padding: 12px 15px; border: none;
+      border-radius: 8px; cursor: pointer; background: #007bff; color: white;
+      font-size: 1rem;
     }
-    button:hover {
-      background: #0056b3;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-    }
-    th, td {
-      border: 1px solid #ddd;
-      padding: 10px;
-      text-align: center;
-    }
-    th {
-      background: #007bff;
-      color: white;
-    }
+    button:hover { background: #0056b3; }
+
+    table { width: 100%; border-collapse: collapse; min-width: 700px; }
+    th, td { border: 1px solid #ddd; padding: 10px; text-align: center; }
+    th { background: #007bff; color: white; }
     .viable { color: green; font-weight: bold; }
     .no-viable { color: red; font-weight: bold; }
+
+    /* Responsividad */
+    @media (max-width: 768px) {
+      body { margin: 15px; }
+      h1 { font-size: 1.3rem; }
+      form { padding: 15px; }
+      input, select, button { font-size: 0.9rem; padding: 8px; }
+    }
+
+    @media (max-width: 600px) {
+      .table-container {
+        overflow-x: auto;
+      }
+      table { font-size: 0.85rem; }
+      th, td { padding: 6px; }
+    }
   </style>
 </head>
 <body>
@@ -96,30 +82,27 @@
     <label>Precio de venta (COP):</label>
     <input type="number" id="precio">
 
-    <label>Costo de envío local (si tú lo pagas) (COP):</label>
-    <input type="number" id="shipping_local" value="0" step="1">
-
-    <label><input type="checkbox" id="seller_pays_shipping"> El vendedor asume el envío (envío gratis)</label>
-
     <button type="button" onclick="calcular()">Calcular</button>
   </form>
 
-  <table id="resultado" style="display:none;">
-    <thead>
-      <tr>
-        <th>Producto</th>
-        <th>Costo Unitario Real</th>
-        <th>Precio Venta</th>
-        <th>Comisión ML</th>
-        <th>IVA Retenido</th>
-        <th>Envío (si aplica)</th>
-        <th>Ingreso Neto</th>
-        <th>Margen Neto</th>
-        <th>Resultado</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
+  <div class="table-container">
+    <table id="resultado" style="display:none;">
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th>Costo Unitario Real</th>
+          <th>Precio Venta</th>
+          <th>Comisión ML</th>
+          <th>IVA Retenido</th>
+          <th>Envío (si aplica)</th>
+          <th>Ingreso Neto</th>
+          <th>Margen Neto</th>
+          <th>Resultado</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
 
   <button onclick="imprimir()" style="display:none;" id="btnPrint">🖨️ Imprimir</button>
   <button onclick="exportarExcel()" style="display:none;" id="btnExcel">📥 Exportar Excel</button>
@@ -145,19 +128,20 @@
       const comisionPercent = parseFloat(document.getElementById('publicacion').value) || 0;
       const comisionML = precioVenta * comisionPercent;
 
-      // IVA retenido (19% incluido en precio, retención 15% sobre esa porción)
+      // IVA retenido
       const IVA_RATE = 0.19;
       const IVA_RETENTION_RATE = 0.15;
       const ivaAmount = precioVenta * (IVA_RATE / (1 + IVA_RATE));
       const ivaRetenido = ivaAmount * IVA_RETENTION_RATE;
 
-      // envío local (si aplica)
-      const shippingLocal = parseFloat(document.getElementById('shipping_local').value) || 0;
-      const sellerPaysShipping = document.getElementById('seller_pays_shipping').checked;
-      const shippingCostToSubtract = sellerPaysShipping ? shippingLocal : 0;
+      // envío local automático
+      let shippingCost = 0;
+      if (precioVenta >= 60000) {
+        shippingCost = 7000; // tarifa fija <1kg pequeña
+      }
 
       // ingreso neto
-      const ingresoNeto = precioVenta - comisionML - ivaRetenido - shippingCostToSubtract;
+      const ingresoNeto = precioVenta - comisionML - ivaRetenido - shippingCost;
 
       // margen neto
       let margen = 0;
@@ -180,7 +164,7 @@
           <td>${precioVenta.toFixed(0)}</td>
           <td>${comisionML.toFixed(0)}</td>
           <td>${ivaRetenido.toFixed(0)}</td>
-          <td>${(shippingCostToSubtract ? shippingCostToSubtract.toFixed(0) : 0)}</td>
+          <td>${shippingCost.toFixed(0)}</td>
           <td>${ingresoNeto.toFixed(0)}</td>
           <td>${margen.toFixed(1)}%</td>
           <td class="${clase}">${resultado}</td>
@@ -188,9 +172,7 @@
       `;
     }
 
-    function imprimir() {
-      window.print();
-    }
+    function imprimir() { window.print(); }
 
     function exportarExcel() {
       let table = document.getElementById("resultado");
