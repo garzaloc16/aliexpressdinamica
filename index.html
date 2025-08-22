@@ -30,7 +30,6 @@
     .viable { color: green; font-weight: bold; }
     .no-viable { color: red; font-weight: bold; }
 
-    /* Responsividad */
     @media (max-width: 768px) {
       body { margin: 15px; }
       h1 { font-size: 1.3rem; }
@@ -85,7 +84,11 @@
     <label>Precio de venta (COP):</label>
     <input type="number" id="precio">
 
+    <label>Link de Aliexpress:</label>
+    <input type="url" id="link" placeholder="https://...">
+
     <button type="button" onclick="calcular()">Calcular</button>
+    <button type="button" onclick="nuevaCotizacion()">➕ Otra cotización</button>
   </form>
 
   <div class="table-container">
@@ -101,6 +104,7 @@
           <th>Ingreso Neto</th>
           <th>Margen Neto</th>
           <th>Ganancia x Unidad</th>
+          <th>Link Aliexpress</th>
           <th>Resultado</th>
         </tr>
       </thead>
@@ -119,6 +123,7 @@
       const envioIntl = parseFloat(document.getElementById('envio').value) || 0;
       const impuestosPagados = parseFloat(document.getElementById('impuestos').value) || 0;
       const precioVenta = parseFloat(document.getElementById('precio').value);
+      const linkAli = document.getElementById('link').value || '';
 
       if (isNaN(precioVenta)) {
         alert('⚠️ Debes ingresar un Precio de venta válido.');
@@ -142,26 +147,21 @@
       }
 
       const ingresoNeto = precioVenta - comisionML - ivaRetenido - shippingCost;
-
-      let margen = 0;
-      if (costoUnitarioReal > 0) {
-        margen = ((ingresoNeto - costoUnitarioReal) / costoUnitarioReal) * 100;
-      }
-
-      // Ganancia por unidad
+      const margen = costoUnitarioReal > 0 ? ((ingresoNeto - costoUnitarioReal) / costoUnitarioReal) * 100 : 0;
       const gananciaUnidad = ingresoNeto - costoUnitarioReal;
 
       const resultado = margen >= 50 ? "Viable" : "No Viable";
       const clase = margen >= 50 ? "viable" : "no-viable";
 
       const fmt = n => '$ ' + Math.round(Number(n || 0)).toLocaleString('es-CO');
+      const linkHTML = linkAli ? `<a href="${linkAli}" target="_blank">Ver</a>` : '-';
 
       document.getElementById('resultado').style.display = 'table';
       document.getElementById('btnPrint').style.display = 'inline-block';
       document.getElementById('btnExcel').style.display = 'inline-block';
 
       const tbody = document.querySelector("#resultado tbody");
-      tbody.innerHTML = `
+      tbody.innerHTML += `
         <tr>
           <td>${producto}</td>
           <td>${fmt(costoUnitarioReal)}</td>
@@ -172,9 +172,16 @@
           <td>${fmt(ingresoNeto)}</td>
           <td>${margen.toFixed(1)}%</td>
           <td>${fmt(gananciaUnidad)}</td>
+          <td>${linkHTML}</td>
           <td class="${clase}">${resultado}</td>
         </tr>
       `;
+    }
+
+    function nuevaCotizacion() {
+      const producto = document.getElementById('producto').value; // mantener nombre
+      document.getElementById('simulador').reset();
+      document.getElementById('producto').value = producto; // restaurar producto
     }
 
     function imprimir() { window.print(); }
