@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Simulador Mercado Libre CO</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 30px;
+      background: #f4f6f9;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+    }
+    form, table {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      margin-bottom: 20px;
+    }
+    label {
+      display: block;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+    input, select {
+      width: 100%;
+      padding: 8px;
+      margin-top: 4px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+    }
+    button {
+      margin-top: 15px;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background: #007bff;
+      color: white;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      border: 1px solid #ddd;
+      padding: 10px;
+      text-align: center;
+    }
+    th {
+      background: #007bff;
+      color: white;
+    }
+    .viable { color: green; font-weight: bold; }
+    .no-viable { color: red; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>📊 Simulador de Rentabilidad - Mercado Libre CO</h1>
+
+  <form id="simulador">
+    <label>Nombre del producto:</label>
+    <input type="text" id="producto" required>
+
+    <label>Costo unitario (COP):</label>
+    <input type="number" id="costo" required>
+
+    <label>Cantidad comprada:</label>
+    <input type="number" id="cantidad" required>
+
+    <label>Envío internacional total (COP):</label>
+    <input type="number" id="envio" required>
+
+    <label>Tipo de publicación:</label>
+    <select id="publicacion">
+      <option value="clasica">Clásica (13%)</option>
+      <option value="premium">Premium (28%)</option>
+    </select>
+
+    <label>Precio de venta (manual, COP):</label>
+    <input type="number" id="precio">
+
+    <button type="button" onclick="calcular()">Calcular</button>
+  </form>
+
+  <table id="resultado" style="display:none;">
+    <thead>
+      <tr>
+        <th>Producto</th>
+        <th>Costo Unitario Real</th>
+        <th>Precio Venta</th>
+        <th>Comisión ML</th>
+        <th>IVA Retenido</th>
+        <th>Envío Gratis</th>
+        <th>Ingreso Neto</th>
+        <th>Margen Neto</th>
+        <th>Resultado</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <button onclick="imprimir()" style="display:none;" id="btnPrint">🖨️ Imprimir</button>
+  <button onclick="exportarExcel()" style="display:none;" id="btnExcel">📥 Exportar Excel</button>
+
+  <script>
+    function calcular() {
+      const producto = document.getElementById('producto').value;
+      const costo = parseFloat(document.getElementById('costo').value);
+      const cantidad = parseInt(document.getElementById('cantidad').value);
+      const envio = parseFloat(document.getElementById('envio').value);
+      const tipoPub = document.getElementById('publicacion').value;
+      const precioVenta = parseFloat(document.getElementById('precio').value);
+
+      // costos
+      const costoTotal = (costo * cantidad) + envio;
+      const costoUnitarioReal = costoTotal / cantidad;
+
+      // comisión según tipo
+      const comision = tipoPub === "clasica" ? 0.13 : 0.28;
+
+      // cálculo de comisiones y retenciones
+      const comisionML = precioVenta * comision;
+      const ivaRetenido = precioVenta * 0.15;
+
+      // envío gratis ML (si >= 60k y peso <1kg)
+      const envioGratis = precioVenta >= 60000 ? 7500 : 0;
+
+      // ingreso neto
+      const ingresoNeto = precioVenta - comisionML - ivaRetenido - envioGratis;
+
+      // margen neto
+      const margen = ((ingresoNeto - costoUnitarioReal) / costoUnitarioReal) * 100;
+      const resultado = margen >= 50 ? "Viable" : "No Viable";
+      const clase = margen >= 50 ? "viable" : "no-viable";
+
+      // mostrar tabla
+      document.getElementById('resultado').style.display = 'table';
+      document.getElementById('btnPrint').style.display = 'inline-block';
+      document.getElementById('btnExcel').style.display = 'inline-block';
+
+      const tbody = document.querySelector("#resultado tbody");
+      tbody.innerHTML = `
+        <tr>
+          <td>${producto}</td>
+          <td>${costoUnitarioReal.toFixed(0)}</td>
+          <td>${precioVenta.toFixed(0)}</td>
+          <td>${comisionML.toFixed(0)}</td>
+          <td>${ivaRetenido.toFixed(0)}</td>
+          <td>${envioGratis.toFixed(0)}</td>
+          <td>${ingresoNeto.toFixed(0)}</td>
+          <td>${margen.toFixed(1)}%</td>
+          <td class="${clase}">${resultado}</td>
+        </tr>
+      `;
+    }
+
+    function imprimir() {
+      window.print();
+    }
+
+    function exportarExcel() {
+      let table = document.getElementById("resultado");
+      let html = table.outerHTML.replace(/ /g, '%20');
+      let url = 'data:application/vnd.ms-excel,' + html;
+      let link = document.createElement("a");
+      link.href = url;
+      link.download = 'cotizacion.xls';
+      link.click();
+    }
+  </script>
+</body>
+</html>
