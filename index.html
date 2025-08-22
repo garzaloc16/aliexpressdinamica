@@ -54,7 +54,8 @@
     <label>Nombre del producto:</label>
     <input type="text" id="producto" required>
 
-    <label>Costo unitario (COP):</label>
+    <!-- CAMBIO: ahora este campo es el valor total de la compra (no el costo unitario) -->
+    <label>Valor total compra (COP):</label>
     <input type="number" id="costo" required>
 
     <label>Cantidad comprada:</label>
@@ -62,6 +63,10 @@
 
     <label>Envío internacional total (COP):</label>
     <input type="number" id="envio" required>
+
+    <!-- NUEVO: campo opcional de impuestos pagados en la compra -->
+    <label>Impuestos pagados (COP) (si aplica):</label>
+    <input type="number" id="impuestos" value="0">
 
     <label>Tipo de publicación y comisión (%):</label>
     <select id="publicacion">
@@ -110,9 +115,12 @@
   <script>
     function calcular() {
       const producto = document.getElementById('producto').value || 'Producto';
-      const costo = parseFloat(document.getElementById('costo').value) || 0;
+
+      // ahora 'costo' es el valor total de la compra (no el costo unitario)
+      const valorTotalCompra = parseFloat(document.getElementById('costo').value) || 0;
       const cantidad = parseInt(document.getElementById('cantidad').value) || 1;
       const envioIntl = parseFloat(document.getElementById('envio').value) || 0;
+      const impuestosPagados = parseFloat(document.getElementById('impuestos').value) || 0;
       const precioVenta = parseFloat(document.getElementById('precio').value);
 
       if (isNaN(precioVenta)) {
@@ -120,8 +128,8 @@
         return;
       }
 
-      // costo unitario real
-      const costoTotal = (costo * cantidad) + envioIntl;
+      // costo unitario real = (valor total compra + envío internacional + impuestos) / cantidad
+      const costoTotal = valorTotalCompra + envioIntl + impuestosPagados;
       const costoUnitarioReal = cantidad > 0 ? (costoTotal / cantidad) : 0;
 
       // comisión ML
@@ -151,6 +159,9 @@
       const resultado = margen >= 50 ? "Viable" : "No Viable";
       const clase = margen >= 50 ? "viable" : "no-viable";
 
+      // helper para formatear moneda con separador de miles (es-CO)
+      const fmt = n => '$ ' + Math.round(Number(n || 0)).toLocaleString('es-CO');
+
       // mostrar
       document.getElementById('resultado').style.display = 'table';
       document.getElementById('btnPrint').style.display = 'inline-block';
@@ -160,12 +171,12 @@
       tbody.innerHTML = `
         <tr>
           <td>${producto}</td>
-          <td>${costoUnitarioReal.toFixed(0)}</td>
-          <td>${precioVenta.toFixed(0)}</td>
-          <td>${comisionML.toFixed(0)}</td>
-          <td>${ivaRetenido.toFixed(0)}</td>
-          <td>${shippingCost.toFixed(0)}</td>
-          <td>${ingresoNeto.toFixed(0)}</td>
+          <td>${fmt(costoUnitarioReal)}</td>
+          <td>${fmt(precioVenta)}</td>
+          <td>${fmt(comisionML)}</td>
+          <td>${fmt(ivaRetenido)}</td>
+          <td>${fmt(shippingCost)}</td>
+          <td>${fmt(ingresoNeto)}</td>
           <td>${margen.toFixed(1)}%</td>
           <td class="${clase}">${resultado}</td>
         </tr>
