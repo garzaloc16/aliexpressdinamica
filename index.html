@@ -62,7 +62,7 @@
   </style>
 </head>
 <body>
-  <h1>📊 Simulador de Rentabilidad - Mercado Libre CO</h1>
+  <h1>📊 Simulador de Rentabilidad - Mercado Libre CO (versión realista)</h1>
 
   <form id="simulador">
     <label>Nombre del producto:</label>
@@ -77,14 +77,40 @@
     <label>Envío internacional total (COP):</label>
     <input type="number" id="envio" required>
 
-    <label>Tipo de publicación:</label>
+    <label>Tipo de publicación y comisión (%):</label>
     <select id="publicacion">
-      <option value="clasica">Clásica (13%)</option>
-      <option value="premium">Premium (28%)</option>
+      <optgroup label="Clásica">
+        <option value="0.08">Clásica (8%)</option>
+        <option value="0.10">Clásica (10%)</option>
+        <option value="0.13" selected>Clásica (13%)</option>
+        <option value="0.16">Clásica (16%)</option>
+      </optgroup>
+      <optgroup label="Premium">
+        <option value="0.125">Premium (12.5%)</option>
+        <option value="0.15">Premium (15%)</option>
+        <option value="0.17">Premium (17%)</option>
+        <option value="0.205">Premium (20.5%)</option>
+      </optgroup>
     </select>
+
+    <label>¿Precio incluye IVA?</label>
+    <label><input type="checkbox" id="iva_included" checked> Sí (el precio que ingresa el cliente incluye IVA)</label>
 
     <label>Precio de venta (manual, COP):</label>
     <input type="number" id="precio">
+
+    <hr style="margin:12px 0; border: none; height: 1px; background:#eee;">
+
+    <label>Comisión Mercado Pago (%) (ej: 3.29):</label>
+    <input type="number" id="mp_percent" value="3.29" step="0.01">
+
+    <label>Comisión Mercado Pago fija (COP) (ej: 800):</label>
+    <input type="number" id="mp_fixed" value="800" step="1">
+
+    <label>Costo de envío local (si tú lo pagas) (COP):</label>
+    <input type="number" id="shipping_local" value="0" step="1">
+
+    <label><input type="checkbox" id="seller_pays_shipping"> El vendedor asume el envío (ofrezco envío gratis)</label>
 
     <button type="button" onclick="calcular()">Calcular</button>
   </form>
@@ -97,7 +123,8 @@
         <th>Precio Venta</th>
         <th>Comisión ML</th>
         <th>IVA Retenido</th>
-        <th>Envío Gratis</th>
+        <th>Comisión MP (con IVA)</th>
+        <th>Envío (si aplica)</th>
         <th>Ingreso Neto</th>
         <th>Margen Neto</th>
         <th>Resultado</th>
@@ -111,36 +138,68 @@
 
   <script>
     function calcular() {
-      const producto = document.getElementById('producto').value;
-      const costo = parseFloat(document.getElementById('costo').value);
-      const cantidad = parseInt(document.getElementById('cantidad').value);
-      const envio = parseFloat(document.getElementById('envio').value);
-      const tipoPub = document.getElementById('publicacion').value;
+      // Inputs básicos
+      const producto = document.getElementById('producto').value || 'Producto';
+      const costo = parseFloat(document.getElementById('costo').value) || 0;
+      const cantidad = parseInt(document.getElementById('cantidad').value) || 1;
+      const envioIntl = parseFloat(document.getElementById('envio').value) || 0;
       const precioVenta = parseFloat(document.getElementById('precio').value);
 
-      // costos
-      const costoTotal = (costo * cantidad) + envio;
-      const costoUnitarioReal = costoTotal / cantidad;
+      if (isNaN(precioVenta)) {
+        alert('⚠️ Debes ingresar un Precio de venta válido.');
+        return;
+      }
 
-      // comisión según tipo
-      const comision = tipoPub === "clasica" ? 0.13 : 0.28;
+      // Costos unitarios reales (incluye envío internacional prorrateado)
+      const costoTotal = (costo * cantidad) + envioIntl;
+      const costoUnitarioReal = cantidad > 0 ? (costoTotal / cantidad) : 0;
 
-      // cálculo de comisiones y retenciones
-      const comisionML = precioVenta * comision;
-      const ivaRetenido = precioVenta * 0.15;
+      // Comisión ML (se toma directamente del select: 0.08, 0.13, 0.17, etc.)
+      const comisionPercent = parseFloat(document.getElementById('publicacion').value) || 0;
+      const comisionML = precioVenta * comisionPercent;
 
-      // envío gratis ML (si >= 60k y peso <1kg)
-      const envioGratis = precioVenta >= 60000 ? 7500 : 0;
+      // IVA y retención (Colombia)
+      const IVA_RATE = 0.19; // tarifa general (ajusta si tu producto tiene otra tarifa)
+      const IVA_RETENTION_RATE = 0.15; // Mercado Libre retiene 15% sobre la porción de IVA
+      const ivaIncluded = document.getElementById('iva_included').checked;
 
-      // ingreso neto
-      const ingresoNeto = precioVenta - comisionML - ivaRetenido - envioGratis;
+      // calcular la porción de IVA según si el precio incluye IVA o no
+      let ivaAmount;
+      if (ivaIncluded) {
+        // porción de IVA contenida en el precio: precio * (iva / (1+iva))
+        ivaAmount = precioVenta * (IVA_RATE / (1 + IVA_RATE));
+      } else {
+        // IVA adicional sobre el precio: precio * iva
+        ivaAmount = precioVenta * IVA_RATE;
+      }
+      const ivaRetenido = ivaAmount * IVA_RETENTION_RATE;
 
-      // margen neto
-      const margen = ((ingresoNeto - costoUnitarioReal) / costoUnitarioReal) * 100;
+      // Mercado Pago: % + fijo + IVA (según su nota: "3.29% + $800 + IVA", por eso aplicamos IVA sobre la suma de % + fijo)
+      const mpPercent = (parseFloat(document.getElementById('mp_percent').value) || 0) / 100;
+      const mpFixed = parseFloat(document.getElementById('mp_fixed').value) || 0;
+      const mpFeeWithoutIVA = (precioVenta * mpPercent) + mpFixed;
+      const mpFeeIVA = mpFeeWithoutIVA * IVA_RATE; // se suma IVA a la comisión de Mercado Pago
+      const mpFeeTotal = mpFeeWithoutIVA + mpFeeIVA;
+
+      // Envío local (si el vendedor lo paga)
+      const shippingLocal = parseFloat(document.getElementById('shipping_local').value) || 0;
+      const sellerPaysShipping = document.getElementById('seller_pays_shipping').checked;
+      const shippingCostToSubtract = sellerPaysShipping ? shippingLocal : 0;
+
+      // Ingreso neto final para el vendedor
+      const ingresoNeto = precioVenta - comisionML - ivaRetenido - mpFeeTotal - shippingCostToSubtract;
+
+      // Margen neto sobre el costo unitario real
+      let margen = 0;
+      if (costoUnitarioReal > 0) {
+        margen = ((ingresoNeto - costoUnitarioReal) / costoUnitarioReal) * 100;
+      } else {
+        margen = 0;
+      }
       const resultado = margen >= 50 ? "Viable" : "No Viable";
       const clase = margen >= 50 ? "viable" : "no-viable";
 
-      // mostrar tabla
+      // Mostrar tabla y botones
       document.getElementById('resultado').style.display = 'table';
       document.getElementById('btnPrint').style.display = 'inline-block';
       document.getElementById('btnExcel').style.display = 'inline-block';
@@ -153,7 +212,8 @@
           <td>${precioVenta.toFixed(0)}</td>
           <td>${comisionML.toFixed(0)}</td>
           <td>${ivaRetenido.toFixed(0)}</td>
-          <td>${envioGratis.toFixed(0)}</td>
+          <td>${mpFeeTotal.toFixed(0)}</td>
+          <td>${(shippingCostToSubtract ? shippingCostToSubtract.toFixed(0) : 0)}</td>
           <td>${ingresoNeto.toFixed(0)}</td>
           <td>${margen.toFixed(1)}%</td>
           <td class="${clase}">${resultado}</td>
