@@ -54,7 +54,6 @@
     <label>Nombre del producto:</label>
     <input type="text" id="producto" required>
 
-    <!-- CAMBIO: ahora este campo es el valor total de la compra (no el costo unitario) -->
     <label>Valor total compra (COP):</label>
     <input type="number" id="costo" required>
 
@@ -64,7 +63,6 @@
     <label>Envío internacional total (COP):</label>
     <input type="number" id="envio" required>
 
-    <!-- NUEVO: campo opcional de impuestos pagados en la compra -->
     <label>Impuestos pagados (COP) (si aplica):</label>
     <input type="number" id="impuestos" value="0">
 
@@ -102,6 +100,7 @@
           <th>Envío (si aplica)</th>
           <th>Ingreso Neto</th>
           <th>Margen Neto</th>
+          <th>Ganancia x Unidad</th>
           <th>Resultado</th>
         </tr>
       </thead>
@@ -115,8 +114,6 @@
   <script>
     function calcular() {
       const producto = document.getElementById('producto').value || 'Producto';
-
-      // ahora 'costo' es el valor total de la compra (no el costo unitario)
       const valorTotalCompra = parseFloat(document.getElementById('costo').value) || 0;
       const cantidad = parseInt(document.getElementById('cantidad').value) || 1;
       const envioIntl = parseFloat(document.getElementById('envio').value) || 0;
@@ -128,41 +125,37 @@
         return;
       }
 
-      // costo unitario real = (valor total compra + envío internacional + impuestos) / cantidad
       const costoTotal = valorTotalCompra + envioIntl + impuestosPagados;
       const costoUnitarioReal = cantidad > 0 ? (costoTotal / cantidad) : 0;
 
-      // comisión ML
       const comisionPercent = parseFloat(document.getElementById('publicacion').value) || 0;
       const comisionML = precioVenta * comisionPercent;
 
-      // IVA retenido
       const IVA_RATE = 0.19;
       const IVA_RETENTION_RATE = 0.15;
       const ivaAmount = precioVenta * (IVA_RATE / (1 + IVA_RATE));
       const ivaRetenido = ivaAmount * IVA_RETENTION_RATE;
 
-      // envío local automático
       let shippingCost = 0;
       if (precioVenta >= 60000) {
-        shippingCost = 7000; // tarifa fija <1kg pequeña
+        shippingCost = 7000;
       }
 
-      // ingreso neto
       const ingresoNeto = precioVenta - comisionML - ivaRetenido - shippingCost;
 
-      // margen neto
       let margen = 0;
       if (costoUnitarioReal > 0) {
         margen = ((ingresoNeto - costoUnitarioReal) / costoUnitarioReal) * 100;
       }
+
+      // Ganancia por unidad
+      const gananciaUnidad = ingresoNeto - costoUnitarioReal;
+
       const resultado = margen >= 50 ? "Viable" : "No Viable";
       const clase = margen >= 50 ? "viable" : "no-viable";
 
-      // helper para formatear moneda con separador de miles (es-CO)
       const fmt = n => '$ ' + Math.round(Number(n || 0)).toLocaleString('es-CO');
 
-      // mostrar
       document.getElementById('resultado').style.display = 'table';
       document.getElementById('btnPrint').style.display = 'inline-block';
       document.getElementById('btnExcel').style.display = 'inline-block';
@@ -178,6 +171,7 @@
           <td>${fmt(shippingCost)}</td>
           <td>${fmt(ingresoNeto)}</td>
           <td>${margen.toFixed(1)}%</td>
+          <td>${fmt(gananciaUnidad)}</td>
           <td class="${clase}">${resultado}</td>
         </tr>
       `;
